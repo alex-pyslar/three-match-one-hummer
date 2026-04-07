@@ -121,6 +121,24 @@ func validateInitData(initData, botToken string) (*models.TelegramUser, error) {
 	return &tgUser, nil
 }
 
+// AdminAuth is a middleware that validates the X-Admin-Secret header.
+// If ADMIN_SECRET env var is empty the endpoint returns 403 (disabled).
+func AdminAuth(cfg *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if cfg.AdminSecret == "" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error": "admin endpoints are disabled (ADMIN_SECRET not set)",
+			})
+			return
+		}
+		if c.GetHeader("X-Admin-Secret") != cfg.AdminSecret {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid admin secret"})
+			return
+		}
+		c.Next()
+	}
+}
+
 // sentinel errors
 type authError string
 

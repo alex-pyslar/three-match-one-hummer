@@ -73,7 +73,7 @@ func main() {
 
 	// ── Admin routes (protected by X-Admin-Secret header) ────────────────────
 	admin := api.Group("/admin")
-	admin.Use(handlers.AdminAuth(cfg))
+	admin.Use(middleware.AdminAuth(cfg))
 	{
 		admin.DELETE("/data", adminHandler.PurgeData)
 		admin.DELETE("/scores/old", adminHandler.PurgeOldScores)

@@ -1,13 +1,16 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"three-match-one-hummer/api/internal/config"
 	"three-match-one-hummer/api/internal/database"
 	"three-match-one-hummer/api/internal/middleware"
 	"three-match-one-hummer/api/internal/models"
@@ -161,4 +164,66 @@ func (h *ScoreHandler) SaveProgress(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+// ── Admin handlers ────────────────────────────────────────────────────────────
+
+// AdminHandler groups dependencies for admin-only endpoints.
+type AdminHandler struct {
+	db  *database.DB
+	cfg *config.Config
+}
+
+// NewAdminHandler constructs an AdminHandler.
+func NewAdminHandler(db *database.DB, cfg *config.Config) *AdminHandler {
+	return &AdminHandler{db: db, cfg: cfg}
+}
+
+// PurgeData deletes all users, scores, and game_progress documents.
+// Intended for dev resets and pre-launch clean-ups.
+//
+// DELETE /api/admin/data
+// Header: X-Admin-Secret: <ADMIN_SECRET>
+func (h *AdminHandler) PurgeData(c *gin.Context) {
+	ctx := c.Request.Context()
+	cols := []string{"users", "scores", "game_progress"}
+	deleted := make(map[string]int64, len(cols))
+	for _, name := range cols {
+		res, err := h.db.Collection(name).DeleteMany(ctx, bson.M{})
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "failed to purge: " + name,
+				"deleted": deleted,
+			})
+			return
+		}
+		deleted[name] = res.DeletedCount
+		log.Printf("admin: purged %d docs from %q", res.DeletedCount, name)
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "all player data purged", "deleted": deleted})
+}
+
+// PurgeOldScores deletes score records older than `days` days (default 90).
+// User accounts and game_progress are kept.
+//
+// DELETE /api/admin/scores/old?days=90
+// Header: X-Admin-Secret: <ADMIN_SECRET>
+func (h *AdminHandler) PurgeOldScores(c *gin.Context) {
+	ctx := c.Request.Context()
+	days := int64(90)
+	if d := c.Query("days"); d != "" {
+		if parsed, err := strconv.ParseInt(d, 10, 64); err == nil && parsed > 0 {
+			days = parsed
+		}
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -int(days))
+	res, err := h.db.Collection("scores").DeleteMany(ctx, bson.M{
+		"created_at": bson.M{"$lt": cutoff},
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to purge old scores"})
+		return
+	}
+	log.Printf("admin: purged %d old scores (>%d days)", res.DeletedCount, days)
+	c.JSON(http.StatusOK, gin.H{"message": "old scores purged", "deleted": res.DeletedCount, "days": days})
 }
