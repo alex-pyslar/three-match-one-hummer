@@ -46,7 +46,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
     container_name: match3_app
     restart: unless-stopped
     ports:
