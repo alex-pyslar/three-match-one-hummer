@@ -1,0 +1,70 @@
+version: '3.9'
+
+# ─── Single-container deployment ─────────────────────────────────────────────
+# The React frontend is compiled into ./static/ inside the Go binary image.
+# Only two services are needed: the application and MongoDB.
+#
+# Quick start:
+#   cp .env.example .env        # fill in real values
+#   docker compose up -d --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── MongoDB ─────────────────────────────────────────────────────────────────
+  mongodb:
+    image: mongo:7-jammy
+    container_name: match3_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Set MONGO_PASSWORD in .env}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-threematch}
+    volumes:
+      - match3_mongo:/data/db
+    # Not exposed to host — only the app container connects to it
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - "--quiet"
+        - "--eval"
+        - "db.adminCommand('ping').ok"
+        - "--username"
+        - "${MONGO_USERNAME:-admin}"
+        - "--password"
+        - "${MONGO_PASSWORD}"
+        - "--authenticationDatabase"
+        - "admin"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Application (Go backend + React frontend) ────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # /api is a relative URL — the frontend hits the same origin as the server
+        VITE_API_URL: /api
+    container_name: match3_app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      MONGO_URI: >-
+        mongodb://${MONGO_USERNAME:-admin}:${MONGO_PASSWORD}@mongodb:27017/${MONGO_DB:-threematch}?authSource=admin
+      MONGO_DB:             ${MONGO_DB:-threematch}
+      TELEGRAM_BOT_TOKEN:   ${TELEGRAM_BOT_TOKEN:?Set TELEGRAM_BOT_TOKEN in .env}
+      JWT_SECRET:           ${JWT_SECRET:?Set JWT_SECRET in .env}
+      SERVER_ADDR:          :8080
+      GIN_MODE:             ${GIN_MODE:-release}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+volumes:
+  match3_mongo:
+    name: match3_mongo_data

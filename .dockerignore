@@ -1,0 +1,25 @@
+# Node / Frontend
+frontend/node_modules
+frontend/dist
+frontend/.env*
+
+# Go / Backend
+backend/static
+backend/*.test
+backend/**/*_test.go
+
+# Editor & OS
+.idea
+.vscode
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Docs
+*.md
+README*
