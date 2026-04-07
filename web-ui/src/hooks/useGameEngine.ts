@@ -108,8 +108,6 @@ export function useGameEngine() {
       currentLevel: number,
       currentScoreTarget: number,
       currentMoves: number,
-      donationCurrency: number,
-      passiveIncome: number,
     ) => {
       let grid  = initialGrid
       let score = currentScore
