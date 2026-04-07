@@ -1,14 +1,20 @@
-# Node / Frontend
-frontend/node_modules
-frontend/dist
-frontend/.env*
+# ── Node / Web UI ───────────────────────────────────────────
+web-ui/node_modules
+web-ui/dist
+web-ui/.vite
+web-ui/coverage
+web-ui/.env*
 
-# Go / Backend
-backend/static
-backend/*.test
-backend/**/*_test.go
+# ── Go / API ─────────────────────────────────────────────────
+api/static
+api/*.test
+api/**/*_test.go
 
-# Editor & OS
+# ── Secrets / Config ─────────────────────────────────────────
+.env
+.env.*
+
+# ── Editor & OS ──────────────────────────────────────────────
 .idea
 .vscode
 *.swp
@@ -16,10 +22,10 @@ backend/**/*_test.go
 .DS_Store
 Thumbs.db
 
-# Git
+# ── Git ──────────────────────────────────────────────────────
 .git
 .gitignore
 
-# Docs
+# ── Docs ─────────────────────────────────────────────────────
 *.md
 README*
