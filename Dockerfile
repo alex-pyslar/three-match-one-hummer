@@ -1,16 +1,16 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# Stage 1 — Build the React / Vite frontend
+# Stage 1 — Build the React / Vite web-ui
 # ═══════════════════════════════════════════════════════════════════════════════
-FROM node:20-alpine AS frontend-builder
+FROM node:20-alpine AS web-ui-builder
 
 WORKDIR /app
 
 # Install dependencies first (layer-cached unless package files change)
-COPY frontend/package*.json ./
+COPY web-ui/package*.json ./
 RUN npm ci --prefer-offline
 
 # Copy source and build
-COPY frontend/ .
+COPY web-ui/ .
 # VITE_API_URL is empty so the app uses a relative path (/api/...) —
 # it will be served from the same origin as the Go server.
 ARG VITE_API_URL=/api
@@ -19,9 +19,9 @@ RUN npm run build
 # Output is in /app/dist
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Stage 2 — Build the Go backend
+# Stage 2 — Build the Go api
 # ═══════════════════════════════════════════════════════════════════════════════
-FROM golang:1.23-alpine AS backend-builder
+FROM golang:1.23-alpine AS api-builder
 
 WORKDIR /app
 
@@ -29,14 +29,14 @@ WORKDIR /app
 RUN apk add --no-cache git
 
 # Copy Go module manifest (without go.sum so tidy regenerates it cleanly)
-COPY backend/go.mod ./
+COPY api/go.mod ./
 
-# Copy remaining backend source
-COPY backend/ .
+# Copy remaining api source
+COPY api/ .
 
-# Place the compiled frontend inside the backend working tree so the binary can
+# Place the compiled web-ui inside the api working tree so the binary can
 # find ./static at runtime.
-COPY --from=frontend-builder /app/dist ./static
+COPY --from=web-ui-builder /app/dist ./static
 
 # Regenerate go.sum and build a fully-static binary
 RUN go mod tidy && \
@@ -53,9 +53,9 @@ RUN apk add --no-cache ca-certificates tzdata wget
 
 WORKDIR /app
 
-# Copy the binary and the pre-built frontend
-COPY --from=backend-builder /app/server  ./server
-COPY --from=backend-builder /app/static  ./static
+# Copy the binary and the pre-built web-ui
+COPY --from=api-builder /app/server  ./server
+COPY --from=api-builder /app/static  ./static
 
 EXPOSE 8080
 
