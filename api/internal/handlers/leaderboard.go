@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -35,8 +36,19 @@ func (h *LeaderboardHandler) GetLeaderboard(c *gin.Context) {
 
 	ctx := c.Request.Context()
 
+	// Only consider scores from users active within the last 90 days.
+	// This filters out stale test data and inactive accounts automatically.
+	activeAfter := time.Now().UTC().AddDate(0, 0, -90)
+
 	// Aggregate: group scores by user, join with users collection, sort by best score.
+	// The $unwind without preserveNullAndEmptyArrays acts as an inner join —
+	// any score whose user_id has no matching user document is silently dropped.
+	// This eliminates "ghost" entries left over from development/test sessions.
 	pipeline := mongo.Pipeline{
+		// Only include recent scores
+		{{Key: "$match", Value: bson.D{
+			{Key: "created_at", Value: bson.D{{Key: "$gte", Value: activeAfter}}},
+		}}},
 		{{Key: "$group", Value: bson.D{
 			{Key: "_id", Value: "$user_id"},
 			{Key: "best_score", Value: bson.D{{Key: "$max", Value: "$score"}}},
@@ -45,16 +57,15 @@ func (h *LeaderboardHandler) GetLeaderboard(c *gin.Context) {
 		}}},
 		{{Key: "$sort", Value: bson.D{{Key: "best_score", Value: -1}}}},
 		{{Key: "$limit", Value: limit}},
+		// Inner join with users — excludes any entry with no matching Telegram user
 		{{Key: "$lookup", Value: bson.D{
 			{Key: "from", Value: "users"},
 			{Key: "localField", Value: "_id"},
 			{Key: "foreignField", Value: "telegram_id"},
 			{Key: "as", Value: "user_info"},
 		}}},
-		{{Key: "$unwind", Value: bson.D{
-			{Key: "path", Value: "$user_info"},
-			{Key: "preserveNullAndEmptyArrays", Value: true},
-		}}},
+		// $unwind without preserveNullAndEmptyArrays = inner join (drops non-matched)
+		{{Key: "$unwind", Value: "$user_info"}},
 		{{Key: "$project", Value: bson.D{
 			{Key: "telegram_id", Value: "$_id"},
 			{Key: "best_score", Value: 1},

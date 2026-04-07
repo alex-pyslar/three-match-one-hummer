@@ -9,6 +9,7 @@ type Config struct {
 	MongoDB          string
 	TelegramBotToken string
 	JWTSecret        string
+	AdminSecret      string // protects /api/admin/* endpoints; leave empty to disable
 	Env              string
 }
 
@@ -20,6 +21,7 @@ func Load() *Config {
 		MongoDB:          getEnv("MONGO_DB", "threematch"),
 		TelegramBotToken: getEnv("TELEGRAM_BOT_TOKEN", ""),
 		JWTSecret:        getEnv("JWT_SECRET", "change-me-in-production"),
+		AdminSecret:      getEnv("ADMIN_SECRET", ""),
 		Env:              getEnv("GIN_MODE", "development"),
 	}
 }

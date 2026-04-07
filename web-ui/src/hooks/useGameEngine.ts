@@ -69,12 +69,16 @@ function getSwapIndex(index: number, direction: SwipeDirection): number | null {
 
 export function useGameEngine() {
   const [state, setState] = useState<GameState>(INITIAL_STATE)
+  const stateRef          = useRef<GameState>(INITIAL_STATE) // always mirrors latest state
   const processingRef     = useRef(false)
   const comboTimerRef     = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hintTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null)
   const noMovesTimerRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const passiveTimerRef   = useRef<ReturnType<typeof setInterval> | null>(null)
   const saveTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // ── Keep stateRef in sync so the visibilitychange handler always has latest state ──
+  useEffect(() => { stateRef.current = state }, [state])
 
   // ── Load saved progress on mount ─────────────────────────────────────────────
   // setInitDataGetter is called synchronously in App before children mount,
@@ -83,19 +87,49 @@ export function useGameEngine() {
     api.getProgress()
       .then(progress => {
         if (!progress) return
-        setState(prev => ({
-          ...prev,
-          level:            Math.max(1, progress.level),
-          score:            Math.max(0, progress.score),
-          scoreMultiplier:  Math.max(1, progress.score_multiplier),
-          passiveIncome:    Math.max(1, progress.passive_income),
-          donationCurrency: Math.max(0, progress.donation_currency),
-          movesLeft:        Math.max(1, progress.moves_left),
-          scoreTarget:      Math.max(BASE_SCORE_TARGET, progress.score_target),
-          grid:             generateGrid(), // fresh visual board each session
-        }))
+        // Compute safe movesLeft: if server stored 0 (saved at game-over),
+        // restore the correct amount for that level so the game is playable.
+        const level     = Math.max(1, progress.level)
+        const movesLeft = progress.moves_left > 0
+          ? progress.moves_left
+          : MOVES_PER_LEVEL + level * 2  // same formula used in nextLevel()
+        setState(prev => {
+          const next: GameState = {
+            ...prev,
+            level,
+            score:            Math.max(0, progress.score),
+            scoreMultiplier:  Math.max(1, progress.score_multiplier),
+            passiveIncome:    Math.max(1, progress.passive_income),
+            donationCurrency: Math.max(0, progress.donation_currency),
+            movesLeft,
+            scoreTarget:      Math.max(BASE_SCORE_TARGET, progress.score_target),
+            grid:             generateGrid(), // fresh visual board each session
+          }
+          stateRef.current = next
+          return next
+        })
       })
       .catch(() => { /* no progress saved yet or auth failed — use defaults */ })
+  }, [])
+
+  // ── Immediate save when the user hides the app (tab switch / close) ──────────
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (!document.hidden) return
+      const s = stateRef.current
+      if (s.isGameOver || s.isLevelWon) return
+      api.saveProgress({
+        level:             s.level,
+        score:             s.score,
+        score_multiplier:  s.scoreMultiplier,
+        passive_income:    s.passiveIncome,
+        donation_currency: s.donationCurrency,
+        moves_left:        s.movesLeft,
+        score_target:      s.scoreTarget,
+      }).catch(() => {})
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
   }, [])
 
   // ── Passive income tick ───────────────────────────────────────────────────────
@@ -110,7 +144,10 @@ export function useGameEngine() {
   }, [])
 
   // ── Debounced server save ────────────────────────────────────────────────────
+  // Never persist terminal states (isGameOver / isLevelWon) — movesLeft would
+  // be 0, causing the restored session to immediately end on next open.
   const scheduleSave = useCallback((s: GameState) => {
+    if (s.isGameOver || s.isLevelWon) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       api.saveProgress({

@@ -55,9 +55,17 @@ const App: React.FC = () => {
       {/* Full-screen background particles — z-index 0, behind everything */}
       <FallingParticles />
 
+      {/*
+        Both tabs are always mounted so game state is preserved when the user
+        switches to the leaderboard and back.  Inactive tab is hidden with CSS.
+      */}
       <div className="game-container">
-        {activeTab === 'game'        && <GameBoard user={displayUser} />}
-        {activeTab === 'leaderboard' && <Leaderboard currentUser={displayUser} />}
+        <div style={{ display: activeTab === 'game' ? 'contents' : 'none' }}>
+          <GameBoard user={displayUser} />
+        </div>
+        <div style={{ display: activeTab === 'leaderboard' ? 'contents' : 'none' }}>
+          <Leaderboard currentUser={displayUser} />
+        </div>
       </div>
 
       <nav className="tab-bar">

@@ -35,6 +35,7 @@ func main() {
 	scoreHandler := handlers.NewScoreHandler(db)
 	leaderboardHandler := handlers.NewLeaderboardHandler(db)
 	shopHandler := handlers.NewShopHandler(db)
+	adminHandler := handlers.NewAdminHandler(db, cfg)
 
 	// ── Router ────────────────────────────────────────────────────────────────
 	r := gin.New()
@@ -68,6 +69,14 @@ func main() {
 		protected.GET("/user/progress", scoreHandler.GetProgress)
 		protected.POST("/user/progress", scoreHandler.SaveProgress)
 		protected.POST("/shop/purchase", shopHandler.Purchase)
+	}
+
+	// ── Admin routes (protected by X-Admin-Secret header) ────────────────────
+	admin := api.Group("/admin")
+	admin.Use(handlers.AdminAuth(cfg))
+	{
+		admin.DELETE("/data", adminHandler.PurgeData)
+		admin.DELETE("/scores/old", adminHandler.PurgeOldScores)
 	}
 
 	// ── Static frontend (SPA) ────────────────────────────────────────────────
