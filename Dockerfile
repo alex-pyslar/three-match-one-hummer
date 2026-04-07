@@ -13,7 +13,6 @@ RUN npm ci --prefer-offline
 COPY web-ui/ .
 # VITE_API_URL is empty so the app uses a relative path (/api/...) —
 # it will be served from the same origin as the Go server.
-ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 # Output is in /app/dist
