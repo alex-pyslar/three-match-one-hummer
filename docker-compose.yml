@@ -47,8 +47,6 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        # /api is a relative URL — the frontend hits the same origin as the server
-        VITE_API_URL: /api
     container_name: match3_app
     restart: unless-stopped
     ports:
