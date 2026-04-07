@@ -212,15 +212,13 @@ export function useGameEngine() {
 
         setTimeout(() => {
           cascade(
-            swapped,
-            captured.score,
-            captured.multiplier,
-            captured.level,
-            captured.scoreTarget,
-            captured.movesLeft,
-            captured.donationCurrency,
-            captured.passiveIncome,
-          )
+              swapped,
+              captured.score,
+              captured.multiplier,
+              captured.level,
+              captured.scoreTarget,
+              captured.movesLeft,
+           ).then(() => console.log())
         }, 0)
 
         return { ...prev, grid: swapped, isProcessing: true, hintIndices: null }
