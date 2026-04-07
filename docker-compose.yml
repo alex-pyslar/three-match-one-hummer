@@ -16,6 +16,8 @@ services:
     image: mongo:7-jammy
     container_name: match3_mongodb
     restart: unless-stopped
+    ports:
+      - "27018:27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?Set MONGO_PASSWORD in .env}
