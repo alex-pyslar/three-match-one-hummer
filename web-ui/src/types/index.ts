@@ -30,10 +30,17 @@ export interface GameState {
   hintIndices: [number, number] | null
   combo: number
   showCombo: boolean
-  /** Score gained in the last cascade step — drives the ScorePopup */
+  noMovesAlert: boolean       // true briefly when board auto-reshuffled
   lastScoreEarned: number
-  /** Increments on each gained score so the ScorePopup re-animates via key prop */
   scorePopupKey: number
+}
+
+/** Costs for in-game actions — recalculated each render from state */
+export interface ActionCosts {
+  hint: number
+  reshuffle: number
+  upgradePassive: number
+  upgradeMultiplier: number
 }
 
 export interface GameProgress {
@@ -71,7 +78,14 @@ export interface User {
   telegram_id: number
   username: string
   first_name: string
+  last_name?: string
+  avatar_url?: string
   donation_currency: number
+}
+
+export interface AuthResponse {
+  token: string
+  user: User
 }
 
 export type SwipeDirection = 'up' | 'down' | 'left' | 'right'

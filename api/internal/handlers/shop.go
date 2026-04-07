@@ -5,13 +5,13 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/match3game/backend/internal/database"
-	"github.com/match3game/backend/internal/middleware"
-	"github.com/match3game/backend/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"three-match-one-hummer/api/internal/database"
+	"three-match-one-hummer/api/internal/middleware"
+	"three-match-one-hummer/api/internal/models"
 )
 
 // ShopHandler groups dependencies for shop endpoints.

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useTelegram } from './hooks/useTelegram'
-import { setInitDataGetter } from './services/api'
+import { setInitDataGetter, api } from './services/api'
+import { User } from './types'
 import GameBoard from './components/GameBoard'
 import Leaderboard from './components/Leaderboard'
 import FallingParticles from './components/FallingParticles'
@@ -9,38 +10,54 @@ import './index.css'
 type Tab = 'game' | 'leaderboard'
 
 const App: React.FC = () => {
-  const { tg, getInitData } = useTelegram()
+  const { tg, getInitData, user: tgUser } = useTelegram()
   const [activeTab, setActiveTab] = useState<Tab>('game')
+  const [serverUser, setServerUser] = useState<User | null>(null)
 
-  // Register the initData getter for API calls
-  useEffect(() => {
-    setInitDataGetter(getInitData)
-  }, [getInitData])
+  // ── Register initData getter SYNCHRONOUSLY before any child effects fire ──────
+  // This ensures all authenticated API calls in child useEffects have valid headers.
+  setInitDataGetter(getInitData)
 
-  // Apply Telegram theme colors as CSS variables
+  // ── Upsert user in DB + apply Telegram theme colors ───────────────────────────
   useEffect(() => {
+    // Apply Telegram theme colors as CSS variables
     if (tg?.themeParams) {
-      const params = tg.themeParams
-      const root = document.documentElement
-      if (params.bg_color) root.style.setProperty('--tg-bg', params.bg_color)
-      if (params.text_color) root.style.setProperty('--tg-text', params.text_color)
-      if (params.hint_color) root.style.setProperty('--tg-hint', params.hint_color)
-      if (params.button_color) root.style.setProperty('--tg-button', params.button_color)
-      if (params.button_text_color)
-        root.style.setProperty('--tg-button-text', params.button_text_color)
-      if (params.secondary_bg_color)
-        root.style.setProperty('--tg-secondary-bg', params.secondary_bg_color)
+      const p = tg.themeParams
+      const r = document.documentElement
+      if (p.bg_color)             r.style.setProperty('--tg-bg',           p.bg_color)
+      if (p.text_color)           r.style.setProperty('--tg-text',         p.text_color)
+      if (p.hint_color)           r.style.setProperty('--tg-hint',         p.hint_color)
+      if (p.button_color)         r.style.setProperty('--tg-button',       p.button_color)
+      if (p.button_text_color)    r.style.setProperty('--tg-button-text',  p.button_text_color)
+      if (p.secondary_bg_color)   r.style.setProperty('--tg-secondary-bg', p.secondary_bg_color)
     }
-  }, [tg])
+
+    // Authenticate + upsert user in MongoDB
+    const initData = getInitData()
+    if (!initData) return
+    api.authTelegram(initData)
+      .then(resp => setServerUser(resp.user))
+      .catch(() => { /* outside Telegram or dev mode — continue without server profile */ })
+  }, [tg, getInitData])
+
+  // Build a display user merging Telegram's local data (instant) with server data
+  const displayUser: User | null = serverUser ?? (tgUser ? {
+    telegram_id:      tgUser.id,
+    username:         tgUser.username ?? '',
+    first_name:       tgUser.first_name,
+    last_name:        tgUser.last_name,
+    avatar_url:       tgUser.photo_url,
+    donation_currency: 0,
+  } : null)
 
   return (
     <div className="app">
-      {/* Full-screen background particles — behind everything */}
+      {/* Full-screen background particles — z-index 0, behind everything */}
       <FallingParticles />
 
       <div className="game-container">
-        {activeTab === 'game' && <GameBoard />}
-        {activeTab === 'leaderboard' && <Leaderboard />}
+        {activeTab === 'game'        && <GameBoard user={displayUser} />}
+        {activeTab === 'leaderboard' && <Leaderboard currentUser={displayUser} />}
       </div>
 
       <nav className="tab-bar">

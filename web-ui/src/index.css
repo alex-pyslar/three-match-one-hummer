@@ -158,7 +158,7 @@ button:disabled {
 .hud {
   background: var(--card);
   border-radius: var(--radius-lg);
-  padding: 12px 14px 10px;
+  padding: 10px 14px 10px;
   margin-bottom: 8px;
   box-shadow: var(--shadow-sm);
   position: relative;
@@ -168,6 +168,91 @@ button:disabled {
 @keyframes hud-appear {
   from { opacity: 0; transform: translateY(-12px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── User identity row ─────────────────────────────────────────── */
+.hud__user-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.hud__avatar {
+  flex-shrink: 0;
+}
+
+.hud__avatar-img {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--accent);
+}
+
+.hud__avatar-initials {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255,255,255,0.4);
+}
+
+.hud__user-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hud__user-name {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.hud__user-handle {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.2;
+}
+
+/* ── No-moves alert ────────────────────────────────────────────── */
+.hud__no-moves-alert {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--accent2);
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: rgba(255, 111, 168, 0.12);
+  border-radius: var(--radius-sm);
+  animation: hud-appear 0.3s ease both;
+}
+
+/* ── Moves low warning ─────────────────────────────────────────── */
+.hud__stat--warning .hud__stat-label {
+  color: var(--bomb);
+}
+
+.hud__stat-value--low {
+  color: var(--bomb) !important;
+  animation: moves-pulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes moves-pulse {
+  from { transform: scale(1);    opacity: 1; }
+  to   { transform: scale(1.12); opacity: 0.85; }
 }
 
 .hud__title {
@@ -600,6 +685,14 @@ button:disabled {
   flex: 1;
   background: linear-gradient(135deg, var(--gold), #e6a800);
   color: var(--text);
+}
+
+.btn__cost {
+  margin-left: 5px;
+  font-size: 11px;
+  opacity: 0.78;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 /* ============================================================

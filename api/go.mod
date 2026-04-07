@@ -1,4 +1,4 @@
-module github.com/match3game/backend
+module three-match-one-hummer/api
 
 go 1.23
 

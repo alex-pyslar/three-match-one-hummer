@@ -1,31 +1,26 @@
 import React, { useEffect, useState } from 'react'
-import { LeaderboardEntry } from '../types'
+import { LeaderboardEntry, User } from '../types'
 import { api } from '../services/api'
-import { useTelegram } from '../hooks/useTelegram'
 
-const Leaderboard: React.FC = () => {
+interface LeaderboardProps {
+  currentUser: User | null
+}
+
+const Leaderboard: React.FC<LeaderboardProps> = ({ currentUser }) => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const { user } = useTelegram()
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
-    api
-      .getLeaderboard()
+    api.getLeaderboard()
       .then(data => {
-        if (!cancelled) {
-          setEntries(data ?? [])
-          setLoading(false)
-        }
+        if (!cancelled) { setEntries(data ?? []); setLoading(false) }
       })
       .catch((err: Error) => {
-        if (!cancelled) {
-          setError(err.message ?? 'Ошибка загрузки')
-          setLoading(false)
-        }
+        if (!cancelled) { setError(err.message ?? 'Ошибка загрузки'); setLoading(false) }
       })
     return () => { cancelled = true }
   }, [])
@@ -61,45 +56,35 @@ const Leaderboard: React.FC = () => {
       <h2 className="leaderboard__title">🏆 Рейтинг</h2>
       <div className="leaderboard__list">
         {entries.slice(0, 50).map(entry => {
-          const isCurrentUser = user?.id !== undefined && entry.telegram_id === user?.id
+          const isMe = currentUser?.telegram_id === entry.telegram_id
           const displayName = entry.first_name || entry.username || 'Игрок'
           return (
             <div
-              key={`${entry.rank}-${entry.telegram_id}`}
-              className={`leaderboard__entry${isCurrentUser ? ' leaderboard__entry--current' : ''}`}
+              key={entry.telegram_id}
+              className={`leaderboard__entry${isMe ? ' leaderboard__entry--current' : ''}`}
               style={{ animationDelay: `${Math.min(entry.rank - 1, 20) * 0.04}s` }}
             >
               <div className="leaderboard__rank">
-                {entry.rank <= 3 ? (
-                  <span className="leaderboard__rank-medal">
-                    {entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : '🥉'}
-                  </span>
-                ) : (
-                  <span className="leaderboard__rank-num">#{entry.rank}</span>
-                )}
+                {entry.rank === 1 ? <span className="leaderboard__rank-medal">🥇</span>
+                  : entry.rank === 2 ? <span className="leaderboard__rank-medal">🥈</span>
+                  : entry.rank === 3 ? <span className="leaderboard__rank-medal">🥉</span>
+                  : <span className="leaderboard__rank-num">#{entry.rank}</span>}
               </div>
-
               <div className="leaderboard__avatar">
                 {entry.avatar_url ? (
-                  <img
-                    src={entry.avatar_url}
-                    alt={displayName}
-                    className="leaderboard__avatar-img"
-                  />
+                  <img src={entry.avatar_url} alt={displayName} className="leaderboard__avatar-img" />
                 ) : (
                   <div className="leaderboard__avatar-initials">
                     {(entry.first_name?.[0] ?? entry.username?.[0] ?? '?').toUpperCase()}
                   </div>
                 )}
               </div>
-
               <div className="leaderboard__user-info">
-                <div className="leaderboard__name">{displayName}</div>
-                {entry.username && (
-                  <div className="leaderboard__username">@{entry.username}</div>
-                )}
+                <div className="leaderboard__name">
+                  {displayName}{isMe ? <span className="leaderboard__me-badge"> (я)</span> : ''}
+                </div>
+                {entry.username && <div className="leaderboard__username">@{entry.username}</div>}
               </div>
-
               <div className="leaderboard__scores">
                 <div className="leaderboard__best-score">
                   <img src="/assets/valuta.png" alt="score" className="leaderboard__score-icon" />
@@ -110,7 +95,6 @@ const Leaderboard: React.FC = () => {
             </div>
           )
         })}
-
         {entries.length === 0 && (
           <div className="leaderboard__empty">Пока нет данных 🎮</div>
         )}

@@ -9,10 +9,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"github.com/match3game/backend/internal/config"
-	"github.com/match3game/backend/internal/database"
-	"github.com/match3game/backend/internal/handlers"
-	"github.com/match3game/backend/internal/middleware"
+	"three-match-one-hummer/api/internal/config"
+	"three-match-one-hummer/api/internal/database"
+	"three-match-one-hummer/api/internal/handlers"
+	"three-match-one-hummer/api/internal/middleware"
 )
 
 func main() {

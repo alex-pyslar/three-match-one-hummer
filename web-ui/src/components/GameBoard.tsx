@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useGameEngine } from '../hooks/useGameEngine'
 import { api } from '../services/api'
-import { ShopItem, SwipeDirection } from '../types'
+import { ShopItem, SwipeDirection, User } from '../types'
 import TileCell from './TileCell'
 import HUD from './HUD'
 import ShopModal from './ShopModal'
@@ -10,9 +10,14 @@ import LevelWonModal from './LevelWonModal'
 import ComboOverlay from './ComboOverlay'
 import ScorePopup from './ScorePopup'
 
-const GameBoard: React.FC = () => {
+interface GameBoardProps {
+  user: User | null
+}
+
+const GameBoard: React.FC<GameBoardProps> = ({ user }) => {
   const {
     state,
+    costs,
     handleSwipe,
     buyHint,
     reshuffle,
@@ -27,15 +32,12 @@ const GameBoard: React.FC = () => {
   const [shopItems, setShopItems] = useState<ShopItem[]>([])
 
   useEffect(() => {
-    api
-      .getShopItems()
-      .then(items => setShopItems(items))
+    api.getShopItems()
+      .then(items => setShopItems(items ?? []))
       .catch(() => setShopItems([]))
   }, [])
 
-  const onSwipe = (index: number, direction: SwipeDirection) => {
-    handleSwipe(index, direction)
-  }
+  const onSwipe = (index: number, direction: SwipeDirection) => handleSwipe(index, direction)
 
   return (
     <div className="game-board">
@@ -47,6 +49,8 @@ const GameBoard: React.FC = () => {
         scoreMultiplier={state.scoreMultiplier}
         passiveIncome={state.passiveIncome}
         donationCurrency={state.donationCurrency}
+        noMovesAlert={state.noMovesAlert}
+        user={user}
       />
 
       <div className="game-board__grid-wrap">
@@ -72,25 +76,27 @@ const GameBoard: React.FC = () => {
         <button
           className="btn btn--action"
           onClick={buyHint}
-          disabled={state.isProcessing || state.score < 10}
-          title="Подсказка"
+          disabled={state.isProcessing || state.score < costs.hint}
+          title={`Подсказка — стоимость ${costs.hint} очков`}
         >
-          💡 Подсказка (-10)
+          💡 Подсказка
+          <span className="btn__cost">−{costs.hint}</span>
         </button>
         <button
           className="btn btn--action"
           onClick={reshuffle}
-          disabled={state.isProcessing || state.score < 30}
-          title="Перемешать"
+          disabled={state.isProcessing || state.score < costs.reshuffle}
+          title={`Перемешать — стоимость ${costs.reshuffle} очков`}
         >
-          🔀 Перемешать (-30)
+          🔀 Замес
+          <span className="btn__cost">−{costs.reshuffle}</span>
         </button>
         <button
           className="btn btn--shop"
           onClick={() => setShopOpen(true)}
           title="Магазин"
         >
-          🛒 Магазин
+          🛒
         </button>
       </div>
 
@@ -98,29 +104,31 @@ const GameBoard: React.FC = () => {
         <button
           className="btn btn--upgrade"
           onClick={upgradePassive}
-          disabled={state.isProcessing || state.score < 50}
-          title="Улучшить пассивный доход"
+          disabled={state.isProcessing || state.score < costs.upgradePassive}
+          title={`Пассивный доход ×${state.passiveIncome + 1} — стоимость ${costs.upgradePassive}`}
         >
-          ⚡ +Пассив (-50)
+          ⚡ +Пассив
+          <span className="btn__cost">−{costs.upgradePassive}</span>
         </button>
         <button
           className="btn btn--upgrade"
           onClick={upgradeMultiplier}
-          disabled={state.isProcessing || state.score < 25}
-          title="Улучшить множитель"
+          disabled={state.isProcessing || state.score < costs.upgradeMultiplier}
+          title={`Множитель ×${(state.scoreMultiplier + 0.5).toFixed(1)} — стоимость ${costs.upgradeMultiplier}`}
         >
-          🔢 +Множитель (-25)
+          🔢 ×Множитель
+          <span className="btn__cost">−{costs.upgradeMultiplier}</span>
         </button>
       </div>
 
-      {/* Combo overlay — fixed, centered, re-animates via key on each increment */}
+      {/* Combo overlay — re-animates via key on every new combo level */}
       <ComboOverlay
         key={`combo-${state.scorePopupKey}`}
         combo={state.combo}
         show={state.showCombo}
       />
 
-      {/* Score popup — floats up from center */}
+      {/* Score popup — floats upward on each score gain */}
       <ScorePopup
         key={`score-${state.scorePopupKey}`}
         score={state.lastScoreEarned}
@@ -137,7 +145,6 @@ const GameBoard: React.FC = () => {
       {state.isGameOver && (
         <GameOverModal score={state.score} level={state.level} onRestart={restart} />
       )}
-
       {state.isLevelWon && (
         <LevelWonModal score={state.score} level={state.level} onNext={nextLevel} />
       )}

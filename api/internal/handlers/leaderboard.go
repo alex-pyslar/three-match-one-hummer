@@ -5,10 +5,10 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/match3game/backend/internal/database"
-	"github.com/match3game/backend/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"three-match-one-hummer/api/internal/database"
+	"three-match-one-hummer/api/internal/models"
 )
 
 // LeaderboardHandler groups dependencies for leaderboard endpoints.

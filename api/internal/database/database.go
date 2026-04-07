@@ -5,11 +5,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/match3game/backend/internal/config"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"three-match-one-hummer/api/internal/config"
 )
 
 // DB wraps a MongoDB client and a specific database handle.

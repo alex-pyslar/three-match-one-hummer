@@ -1,10 +1,11 @@
-import { GameProgress, LeaderboardEntry, ShopItem, User } from '../types'
+import { AuthResponse, GameProgress, LeaderboardEntry, ShopItem, User } from '../types'
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
+// Module-level getter — set synchronously from App before any child effects fire.
 let _getInitData: () => string = () => ''
 
-export function setInitDataGetter(fn: () => string) {
+export function setInitDataGetter(fn: () => string): void {
   _getInitData = fn
 }
 
@@ -12,29 +13,40 @@ function authHeaders(): HeadersInit {
   const initData = _getInitData()
   return {
     'Content-Type': 'application/json',
-    Authorization: initData ? `tma ${initData}` : '',
+    ...(initData ? { Authorization: `tma ${initData}` } : {}),
   }
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
+  if (res.status === 204) return null as unknown as T
   if (!res.ok) {
     let message = `HTTP ${res.status}`
     try {
       const data = await res.json()
       message = data?.error ?? data?.message ?? message
-    } catch {
-      // ignore parse errors
-    }
+    } catch { /* ignore */ }
     throw new Error(message)
   }
-  // 204 No Content — return null
-  if (res.status === 204) return null as unknown as T
   const text = await res.text()
   if (!text) return undefined as unknown as T
   return JSON.parse(text) as T
 }
 
 export const api = {
+  /**
+   * Validate Telegram initData on the server and upsert the user.
+   * Returns the JWT token + full user profile.
+   * Should be called once on app mount.
+   */
+  async authTelegram(initData: string): Promise<AuthResponse> {
+    const res = await fetch(`${BASE_URL}/api/auth/telegram`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData }),
+    })
+    return handleResponse<AuthResponse>(res)
+  },
+
   /** Submit a finished game result (score + level reached). */
   async submitScore(score: number, level: number): Promise<void> {
     const res = await fetch(`${BASE_URL}/api/scores`, {
@@ -62,13 +74,13 @@ export const api = {
   },
 
   /** Purchase a shop item by MongoDB ObjectID string. */
-  async purchaseItem(itemId: string): Promise<void> {
+  async purchaseItem(itemId: string): Promise<{ success: boolean; user: User }> {
     const res = await fetch(`${BASE_URL}/api/shop/purchase`, {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({ item_id: itemId }),
     })
-    await handleResponse<void>(res)
+    return handleResponse<{ success: boolean; user: User }>(res)
   },
 
   /** Get the authenticated user's profile. */
@@ -80,8 +92,8 @@ export const api = {
   },
 
   /**
-   * Load saved game progress for the current user.
-   * Returns null if no progress has been saved yet (HTTP 204).
+   * Load saved game progress.
+   * Returns null when no progress exists yet (HTTP 204).
    */
   async getProgress(): Promise<GameProgress | null> {
     const res = await fetch(`${BASE_URL}/api/user/progress`, {
@@ -90,7 +102,7 @@ export const api = {
     return handleResponse<GameProgress | null>(res)
   },
 
-  /** Persist the current game progress on the server. Fire-and-forget safe. */
+  /** Persist current game progress. Fire-and-forget safe. */
   async saveProgress(progress: Omit<GameProgress, 'user_id'>): Promise<void> {
     const res = await fetch(`${BASE_URL}/api/user/progress`, {
       method: 'POST',

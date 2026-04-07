@@ -1,3 +1,89 @@
-dist/
+# ============================================================
+#  three-match-one-hummer — .gitignore
+# ============================================================
+
+# ── Go ──────────────────────────────────────────────────────
+/api/bin/
+/api/*.exe
+/api/*.exe~
+/api/*.dll
+/api/*.so
+/api/*.dylib
+/api/*.test
+/api/*.out
+/api/vendor/
+/api/coverage.out
+/api/coverage.html
+
+# ── Node / Web UI ───────────────────────────────────────────
 node_modules/
+web-ui/node_modules/
+web-ui/dist/
+web-ui/.vite/
+web-ui/coverage/
+*.tsbuildinfo
+
+# ── Environment / Secrets ───────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+
+# ── Docker ──────────────────────────────────────────────────
+docker-compose.override.yml
+.docker/
+mongo-data/
+mongo_data/
+volumes/
+
+# ── Build artifacts ─────────────────────────────────────────
+dist/
+build/
+out/
+*.min.js
+*.min.css
+
+# ── OS ──────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ── IDE / Editors ───────────────────────────────────────────
 .idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ── Logs ────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Test / Coverage ─────────────────────────────────────────
+coverage/
+*.lcov
+.nyc_output/
+
+# ── Misc ────────────────────────────────────────────────────
+*.tmp
+*.bak
+*.orig
+.cache/

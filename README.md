@@ -1,270 +1,358 @@
-# ThreeMatchGame
+# 🔨 Три в ряд, один молоток
 
-A Match-3 puzzle game delivered as a **Telegram MiniApp**.
-The frontend is a React + TypeScript SPA (Vite); the backend is a Go REST API (Gin + pgx); persistence is PostgreSQL.
-
----
-
-## Table of Contents
-
-1. [Quick Start (Docker)](#quick-start-docker)
-2. [Manual Development Setup](#manual-development-setup)
-3. [Environment Variables](#environment-variables)
-4. [API Endpoints](#api-endpoints)
-5. [Architecture](#architecture)
-6. [Project Structure](#project-structure)
-7. [Registering as a Telegram MiniApp](#registering-as-a-telegram-miniapp)
+> Telegram Mini App — головоломка «три в ряд» с прогрессом, магазином, множителями очков и глобальным рейтингом.
 
 ---
 
-## Quick Start (Docker)
+## Содержание
 
-Requires: **Docker 24+** and **Docker Compose v2**.
-
-```bash
-# 1. Clone and enter the repo
-git clone <repo-url> ThreeMatchGame
-cd ThreeMatchGame
-
-# 2. Create your local .env from the example
-cp .env.example .env
-
-# 3. Set your Telegram Bot Token (the only required change)
-#    Open .env and replace "your_bot_token_here" with the token from @BotFather
-$EDITOR .env
-
-# 4. Build and start all services
-docker compose up --build
-
-# The app is now reachable at:
-#   Nginx reverse proxy  → http://localhost:80
-#   Frontend (direct)    → http://localhost:3000
-#   Backend API (direct) → http://localhost:8080
-#   PostgreSQL           → localhost:5432
-```
-
-To run in the background:
-
-```bash
-docker compose up --build -d
-docker compose logs -f        # tail logs
-docker compose down           # stop and remove containers
-docker compose down -v        # also remove the pgdata volume
-```
+- [О проекте](#о-проекте)
+- [Стек технологий](#стек-технологий)
+- [Архитектура](#архитектура)
+- [Структура репозитория](#структура-репозитория)
+- [Геймплей](#геймплей)
+- [API](#api)
+- [Переменные окружения](#переменные-окружения)
+- [Локальная разработка](#локальная-разработка)
+- [Деплой через Docker](#деплой-через-docker)
+- [Telegram Mini App — настройка](#telegram-mini-app--настройка)
 
 ---
 
-## Manual Development Setup
+## О проекте
 
-### Prerequisites
+**Three Match One Hummer** — полноценная браузерная игра «три в ряд», встроенная в Telegram как Mini App (WebApp). Игрок авторизуется через Telegram, его прогресс сохраняется на сервере. В игре есть:
 
-| Tool       | Minimum version |
-|------------|-----------------|
-| Node.js    | 18              |
-| Go         | 1.22            |
-| PostgreSQL | 15              |
-
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev          # starts Vite dev server on http://localhost:5173
-```
-
-Copy `.env.example` to `frontend/.env.local` and set `VITE_API_URL` to point at your running backend:
-
-```
-VITE_API_URL=http://localhost:8080
-```
-
-### Backend
-
-```bash
-cd backend
-
-# Apply the database schema (once)
-psql -U match3user -d match3 -f migrations/001_initial.sql
-
-# Run the server
-go run ./cmd/server
-```
-
-The backend reads its configuration from environment variables (see [Environment Variables](#environment-variables)).
-For local development you can export them in your shell or use a `.env` file loaded by `godotenv`.
+- 🎮 динамическое игровое поле 6×6
+- ⚡ пассивный доход, множитель очков, каскадные комбо
+- 💡 подсказки и перемешивание (покупаются за очки)
+- 🛒 магазин на внутреннюю валюту (donation currency)
+- 🏆 глобальная таблица лидеров
 
 ---
 
-## Environment Variables
+## Стек технологий
 
-| Variable            | Default                          | Description                                                   |
-|---------------------|----------------------------------|---------------------------------------------------------------|
-| `POSTGRES_PASSWORD` | `match3pass`                     | Password for the `match3user` PostgreSQL role.                |
-| `TELEGRAM_BOT_TOKEN`| *(required)*                     | Token from @BotFather used to validate Telegram `initData`.   |
-| `JWT_SECRET`        | `change_me_in_production_please` | HS256 signing key for JWT tokens (min. 32 random chars).      |
-| `VITE_API_URL`      | `http://localhost:8080`          | Public URL of the backend, injected at frontend build time.   |
-| `GIN_MODE`          | `release`                        | Set to `debug` for verbose Gin request logging.               |
-| `SERVER_ADDR`       | `:8080`                          | Address the Go server listens on.                             |
-| `DATABASE_URL`      | *(constructed by compose)*       | Full DSN; overrides all individual DB variables when set.     |
-
-> **Security:** Never commit a real `.env` file. The `.env.example` template contains no secrets.
+| Слой | Технология |
+|------|------------|
+| Бэкенд | Go 1.23, Gin, MongoDB Driver, JWT (HS256) |
+| Фронтенд | React 18, TypeScript, Vite |
+| База данных | MongoDB 7 |
+| Деплой | Docker, многоэтапная сборка (один контейнер) |
+| Платформа | Telegram Mini App (WebApp) |
 
 ---
 
-## API Endpoints
-
-### Authentication
-
-| Method | Path                  | Auth     | Description                                                                                           |
-|--------|-----------------------|----------|-------------------------------------------------------------------------------------------------------|
-| POST   | `/api/auth/telegram`  | None     | Validates Telegram WebApp `initData` (HMAC-SHA256), upserts the user record, returns a signed JWT. Body: `{ "initData": "<raw initData string>" }` |
-
-### User
-
-| Method | Path           | Auth     | Description                              |
-|--------|----------------|----------|------------------------------------------|
-| GET    | `/api/user/me` | JWT      | Returns the authenticated user's profile including `donationCurrency` balance. |
-
-### Scores
-
-| Method | Path          | Auth | Description                                                                               |
-|--------|---------------|------|-------------------------------------------------------------------------------------------|
-| POST   | `/api/scores` | JWT  | Records a game session result. Body: `{ "score": <int>, "level": <int> }`. Returns the saved score row. |
-
-### Leaderboard
-
-| Method | Path                        | Auth | Description                                                                              |
-|--------|-----------------------------|------|------------------------------------------------------------------------------------------|
-| GET    | `/api/leaderboard?limit=50` | None | Returns up to `limit` (max 200, default 50) players ranked by best score, with rank, username, avatar, best score, best level, and games played. |
-
-### Shop
-
-| Method | Path                  | Auth | Description                                                                                      |
-|--------|-----------------------|------|--------------------------------------------------------------------------------------------------|
-| GET    | `/api/shop/items`     | None | Returns all active shop items (id, name, description, itemType, price, value, icon).             |
-| POST   | `/api/shop/purchase`  | JWT  | Purchases a shop item for the authenticated user. Deducts `donationCurrency`, records the transaction atomically. Body: `{ "itemId": <int> }` |
-
-#### JWT Usage
-
-Pass the token returned by `/api/auth/telegram` as a Bearer token:
+## Архитектура
 
 ```
-Authorization: Bearer <token>
+┌─────────────────────────────────────────────────────────┐
+│                  Docker-контейнер (app)                  │
+│                                                          │
+│   ┌──────────────────────────────────────────────────┐  │
+│   │             Go-сервер (Gin)  :8080               │  │
+│   │                                                  │  │
+│   │  GET  /             → отдаёт index.html          │  │
+│   │  GET  /assets/*     → статика React (Vite dist)  │  │
+│   │  POST /api/auth/telegram                         │  │
+│   │  GET  /api/scores/me                             │  │
+│   │  POST /api/scores                                │  │
+│   │  GET  /api/leaderboard                           │  │
+│   │  GET  /api/shop                                  │  │
+│   │  POST /api/shop/purchase                         │  │
+│   │  GET  /health                                    │  │
+│   └──────────────────────────────────────────────────┘  │
+│                          │                               │
+└──────────────────────────┼───────────────────────────────┘
+                           │ mongo://mongodb:27017
+              ┌────────────▼──────────────┐
+              │   MongoDB-контейнер        │
+              │   (коллекции: users,       │
+              │    scores, shop_items)     │
+              └───────────────────────────┘
 ```
 
-Tokens are HS256-signed and expire after **24 hours**.
+Сборка выполняется в **три этапа** (`Dockerfile`):
+1. **web-ui-builder** — `npm ci && npm run build` → `/app/dist`
+2. **api-builder** — `go build` + копирует `dist/` в `./static/`
+3. **Финальный образ** (alpine) — только бинарь `server` + папка `static/`
+
+Итоговый образ весит ~25 МБ и не содержит ни Node, ни Go toolchain.
 
 ---
 
-## Architecture
+## Структура репозитория
 
 ```
-                          ┌─────────────────────────────────────────┐
-  Telegram Client         │             Docker Compose               │
-  (WebApp iframe)         │                                          │
-        │                 │  ┌──────────┐       ┌────────────────┐  │
-        │  HTTPS          │  │          │ /api/* │                │  │
-        └────────────────►│  │  nginx   ├───────►    backend     │  │
-                          │  │ :80      │       │  (Go / Gin)    │  │
-                          │  │          │       │  :8080         │  │
-                          │  │          │ /*    │                │  │
-                          │  │          ├───┐   └───────┬────────┘  │
-                          │  └──────────┘   │           │           │
-                          │                 │           │ pgx/v5    │
-                          │                 ▼           ▼           │
-                          │  ┌──────────────────┐  ┌────────────┐  │
-                          │  │    frontend       │  │ PostgreSQL │  │
-                          │  │ (React/Vite+nginx)│  │  :5432     │  │
-                          │  │  :3000 → :80      │  │            │  │
-                          │  └──────────────────┘  └────────────┘  │
-                          └─────────────────────────────────────────┘
-
-  Auth flow:
-  1. Telegram injects initData into the WebApp
-  2. Frontend POSTs initData to POST /api/auth/telegram
-  3. Backend verifies HMAC-SHA256 against TELEGRAM_BOT_TOKEN
-  4. Backend upserts user in PostgreSQL, returns signed JWT
-  5. Frontend stores JWT; attaches it as Authorization: Bearer on
-     every subsequent API call
-```
-
----
-
-## Project Structure
-
-```
-ThreeMatchGame/
-├── docker-compose.yml          # Orchestrates all four services
-├── nginx.conf                  # Reverse proxy: /api/* → backend, /* → frontend
-├── .env.example                # Template for required environment variables
+three-match-one-hummer/
 │
-├── backend/
-│   ├── Dockerfile
-│   ├── go.mod
-│   ├── go.sum
+├── api/                        # Go-бэкенд
 │   ├── cmd/
-│   │   └── server/
-│   │       └── main.go         # Entry point: wires config, DB pool, router
-│   ├── migrations/
-│   │   └── 001_initial.sql     # Schema: users, scores, shop_items, purchases
-│   └── internal/
-│       ├── config/
-│       │   └── config.go       # Reads env vars into Config struct
-│       ├── database/
-│       │   └── database.go     # pgxpool setup and ping
-│       ├── handlers/
-│       │   ├── auth.go         # POST /api/auth/telegram
-│       │   ├── scores.go       # POST /api/scores, GET /api/user/me
-│       │   ├── leaderboard.go  # GET /api/leaderboard
-│       │   └── shop.go         # GET /api/shop/items, POST /api/shop/purchase
-│       ├── middleware/
-│       │   ├── auth.go         # JWT validation middleware
-│       │   └── cors.go         # CORS headers
-│       └── models/
-│           └── models.go       # User, Score, ShopItem, Purchase, LeaderboardEntry
+│   │   └── server/             # точка входа (main.go)
+│   ├── internal/
+│   │   ├── config/             # чтение .env / переменных окружения
+│   │   ├── database/           # подключение и клиент MongoDB
+│   │   ├── handlers/           # HTTP-хендлеры (auth, scores, leaderboard, shop)
+│   │   ├── middleware/         # JWT-аутентификация
+│   │   ├── models/             # Go-структуры (User, Score, ShopItem…)
+│   │   └── server/             # роутер Gin, регистрация маршрутов
+│   ├── go.mod
+│   └── go.sum
 │
-└── frontend/
-    ├── Dockerfile
-    ├── package.json
-    ├── vite.config.ts
-    ├── public/
-    └── src/
-        ├── components/         # React UI components
-        ├── game/
-        │   └── gameLogic.ts    # Grid logic, match detection, specials (BOMB, RAINBOW)
-        ├── hooks/
-        │   └── useTelegram.ts  # Telegram WebApp SDK integration hook
-        ├── services/           # API client functions
-        └── types/
-            └── index.ts        # Shared TypeScript types (GameState, Tile, etc.)
+├── web-ui/                     # React-фронтенд
+│   ├── public/
+│   │   └── assets/             # изображения (тайлы, иконки валюты, фоновые частицы)
+│   ├── src/
+│   │   ├── components/         # GameBoard, HUD, Leaderboard, модалки, оверлеи
+│   │   ├── hooks/              # useTelegram, useGameEngine
+│   │   ├── services/           # api.ts — все HTTP-запросы к бэкенду
+│   │   ├── types/              # TypeScript-интерфейсы
+│   │   ├── App.tsx             # рутовый компонент, авторизация, навигация
+│   │   ├── main.tsx
+│   │   └── index.css           # вся стилистика (BEM, CSS-переменные)
+│   ├── package.json
+│   └── vite.config.ts
+│
+├── Dockerfile                  # многоэтапная сборка
+├── docker-compose.yml          # app + mongodb
+├── .env.example                # шаблон переменных окружения
+├── .gitignore
+└── README.md
 ```
 
 ---
 
-## Registering as a Telegram MiniApp
+## Геймплей
 
-1. **Create a bot** — open a chat with [@BotFather](https://t.me/botfather) and send `/newbot`.
-   Follow the prompts; copy the token into `TELEGRAM_BOT_TOKEN` in your `.env`.
+### Основные механики
 
-2. **Deploy the stack** — run `docker compose up -d` on a publicly reachable server.
-   Obtain the HTTPS URL of the frontend (e.g. `https://game.example.com`).
+| Механика | Описание |
+|----------|----------|
+| **Поле** | Сетка 6×6, 7 видов тайлов |
+| **Ход** | Свайп (или стрелки) на любой тайл — он меняется местами с соседом |
+| **Совпадение** | 3+ тайла в ряд/колонке удаляются, поле осыпается, возможен каскад |
+| **Комбо** | Каждый каскад увеличивает множитель: ×1.0 → ×1.5 → ×2.0 → … |
+| **Пассивный доход** | Автоматически начисляет очки каждые 5 секунд |
+| **Множитель очков** | Постоянный бонус к каждому начислению, прокачивается за очки |
+| **Нет ходов** | Доска автоматически перемешивается с уведомлением игроку |
 
-3. **Set the Menu Button URL** — in @BotFather:
+### Масштабирование стоимости действий по уровням
+
+| Действие | Формула |
+|----------|---------|
+| 💡 Подсказка | `10 + (уровень − 1) × 5` |
+| 🔀 Замес | `30 + (уровень − 1) × 15` |
+| ⚡ +Пассив | `текущий_пассив × 50` |
+| 🔢 ×Множитель | `round(текущий_множитель × 50)` |
+
+### Победа / поражение
+
+- **Победа на уровне:** набрать `scoreTarget` очков раньше, чем закончатся ходы.
+- **Поражение:** ходы исчерпаны, очки ниже цели.
+- `scoreTarget` и `movesLeft` растут с каждым уровнем.
+
+---
+
+## API
+
+Все защищённые маршруты требуют заголовка:
+```
+Authorization: tma <Telegram initData>
+```
+
+### `POST /api/auth/telegram`
+Верифицирует `initData` подписью HMAC-SHA256, создаёт или обновляет пользователя в MongoDB, возвращает JWT.
+
+**Тело запроса:**
+```json
+{ "initData": "<строка initData из window.Telegram.WebApp>" }
+```
+
+**Ответ:**
+```json
+{
+  "token": "eyJ...",
+  "user": {
+    "telegram_id": 123456789,
+    "username": "john",
+    "first_name": "John",
+    "last_name": "Doe",
+    "avatar_url": "https://...",
+    "donation_currency": 0
+  }
+}
+```
+
+---
+
+### `GET /api/scores/me`
+Возвращает лучший счёт и уровень текущего пользователя.
+
+**Ответ:**
+```json
+{ "best_score": 42000, "best_level": 7 }
+```
+
+---
+
+### `POST /api/scores`
+Сохраняет результат сессии; обновляет рекорд, если он побит.
+
+**Тело запроса:**
+```json
+{ "score": 42000, "level": 7 }
+```
+
+---
+
+### `GET /api/leaderboard`
+Топ-50 игроков по лучшему счёту.
+
+**Ответ:** массив объектов `LeaderboardEntry` с полями `rank`, `telegram_id`, `username`, `first_name`, `best_score`, `best_level`, `avatar_url`.
+
+---
+
+### `GET /api/shop`
+Список доступных товаров магазина.
+
+---
+
+### `POST /api/shop/purchase`
+Купить товар за `donation_currency`.
+
+**Тело запроса:**
+```json
+{ "item_id": "extra_moves_10" }
+```
+
+---
+
+### `GET /health`
+Healthcheck-эндпоинт (используется Docker и load-balancer).
+
+---
+
+## Переменные окружения
+
+Скопируйте `.env.example` в `.env` и заполните значения:
+
+```dotenv
+# MongoDB
+MONGO_USERNAME=admin
+MONGO_PASSWORD=supersecret
+MONGO_DB=threematch
+
+# Telegram
+TELEGRAM_BOT_TOKEN=1234567890:ABCdef...   # токен вашего бота из @BotFather
+
+# Безопасность
+JWT_SECRET=very-long-random-string-here   # минимум 32 символа, случайный
+
+# Сервер
+APP_PORT=8080
+GIN_MODE=release   # или debug для разработки
+```
+
+> ⚠️ Никогда не коммитьте файл `.env` в репозиторий. Он уже добавлен в `.gitignore`.
+
+---
+
+## Локальная разработка
+
+### Требования
+
+- Go 1.23+
+- Node.js 20+
+- MongoDB 7 (локально или Docker)
+
+### 1. Клонировать репозиторий
+
+```bash
+git clone https://github.com/<your-org>/three-match-one-hummer.git
+cd three-match-one-hummer
+cp .env.example .env
+# отредактируйте .env
+```
+
+### 2. Запустить только MongoDB
+
+```bash
+docker compose up -d mongodb
+```
+
+### 3. Запустить Go-бэкенд
+
+```bash
+cd api
+go mod tidy
+go run ./cmd/server
+# сервер стартует на :8080
+```
+
+### 4. Запустить React-фронтенд (с hot reload)
+
+```bash
+cd web-ui
+npm install
+npm run dev
+# Vite dev-сервер на :5173, проксирует /api/* на :8080
+```
+
+Откройте [http://localhost:5173](http://localhost:5173).
+
+> **Примечание:** авторизация через Telegram требует настоящего Mini App окружения. В режиме разработки приложение работает без аутентификации (пользователь будет `null`, прогресс не сохраняется на сервере).
+
+---
+
+## Деплой через Docker
+
+### Быстрый старт
+
+```bash
+cp .env.example .env
+# заполните .env настоящими значениями
+
+docker compose up -d --build
+```
+
+Приложение будет доступно на `http://<ваш-сервер>:8080`.
+
+### Сборка вручную
+
+```bash
+docker build -t three-match-one-hummer:latest .
+docker run -p 8080:8080 --env-file .env three-match-one-hummer:latest
+```
+
+### Обновление без даунтайма
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+Docker автоматически пересобирает образ и перезапускает контейнер без потери данных MongoDB — они хранятся в named volume `match3_mongo_data`.
+
+---
+
+## Telegram Mini App — настройка
+
+1. Создайте бота через [@BotFather](https://t.me/BotFather).
+2. Получите `TELEGRAM_BOT_TOKEN` и добавьте в `.env`.
+3. Настройте Web App в BotFather:
    ```
-   /mybots → <your bot> → Bot Settings → Menu Button → Edit Menu Button URL
+   /newapp  →  укажите URL вашего сервера, например https://game.example.com
    ```
-   Paste your frontend URL (must be HTTPS).
-
-4. **Optional — set the WebApp inline button** — in @BotFather:
+4. Или добавьте кнопку меню бота:
    ```
-   /mybots → <your bot> → Bot Settings → Configure Mini App
+   /mybots → выберите бота → Bot Settings → Menu Button → Edit Menu Button URL
    ```
-   Set the Mini App URL to the same HTTPS frontend URL.
+5. Откройте бота в Telegram → нажмите кнопку Mini App.
 
-5. **Test** — open Telegram, find your bot, tap the menu button.
-   The game will load inside the Telegram WebApp frame and `initData` will be
-   available for authentication via `window.Telegram.WebApp.initData`.
+После открытия Telegram автоматически передаёт `initData` в `window.Telegram.WebApp.initData`. Бэкенд верифицирует подпись HMAC-SHA256 и создаёт или обновляет запись пользователя в MongoDB.
 
-> **HTTPS is required.** Telegram will not load a MiniApp over plain HTTP.
-> Use a reverse proxy (e.g. Caddy, Traefik, or Certbot with nginx) to terminate TLS
-> in front of the Docker stack.
+---
+
+## Лицензия
+
+MIT — см. файл [LICENSE](LICENSE).

@@ -14,11 +14,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/match3game/backend/internal/config"
-	"github.com/match3game/backend/internal/database"
-	"github.com/match3game/backend/internal/models"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"three-match-one-hummer/api/internal/config"
+	"three-match-one-hummer/api/internal/database"
+	"three-match-one-hummer/api/internal/models"
 )
 
 // AuthHandler groups dependencies for authentication endpoints.

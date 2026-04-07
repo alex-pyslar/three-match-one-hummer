@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/match3game/backend/internal/config"
-	"github.com/match3game/backend/internal/models"
+	"three-match-one-hummer/api/internal/config"
+	"three-match-one-hummer/api/internal/models"
 )
 
 const (
